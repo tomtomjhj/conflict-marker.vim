@@ -122,11 +122,18 @@ function! s:on_detected()
     endif
 endfunction
 
+function! s:detect() abort
+    " NOTE: curbuf and abuf can be different, e.g. when running fugitive command in different buffer
+    let buf = str2nr(expand('<abuf>'))
+    if !empty(getbufvar(buf, '&buftype')) | return | endif
+    " autocmd is triggered in the context of a visible window or a special autocmd window.
+    let win = win_findbuf(buf)[0]
+    call win_execute(win, 'if conflict_marker#detect#markers() | call s:on_detected() | endif')
+endfunction
+
 augroup ConflictMarkerDetect
     autocmd!
-    autocmd BufReadPost,FileChangedShellPost,ShellFilterPost,StdinReadPost * if conflict_marker#detect#markers()
-                \ | call s:on_detected()
-                \ | endif
+    autocmd BufReadPost,FileChangedShellPost,ShellFilterPost,StdinReadPost * call s:detect()
 augroup END
 
 if g:conflict_marker_enable_highlight
