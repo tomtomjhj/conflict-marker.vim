@@ -133,7 +133,24 @@ endfunction
 
 augroup ConflictMarkerDetect
     autocmd!
-    autocmd BufReadPost,FileChangedShellPost,ShellFilterPost,StdinReadPost * call s:detect()
+    autocmd BufReadPost * call s:detect()
+
+    " autocmd BufReadPost          * unsilent echom 'BufReadPost         ' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
+    " autocmd FileChangedShellPost * unsilent echom 'FileChangedShellPost' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
+    " autocmd FileReadPost         * unsilent echom 'FileReadPost        ' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
+    " autocmd ShellFilterPost      * unsilent echom 'ShellFilterPost     ' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
+    " autocmd StdinReadPost        * unsilent echom 'StdinReadPost       ' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
+
+    " some autocmd may not have autocmd window .... bug?
+    " git checkout to commit where cur and alt are changed, then focus nvim
+    " BufReadPost          cur cur [1000]
+    " FileChangedShellPost cur cur [1000]
+    " CTRL-^
+    " BufReadPost          alt alt [1001] " autocmd
+    " FileChangedShellPost cur alt []
+    "
+    " If FileChangedShellPost run, then BufReadPost should've run first. So just remove it.
+
 augroup END
 
 if g:conflict_marker_enable_highlight
