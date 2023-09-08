@@ -122,34 +122,41 @@ function! s:on_detected()
     endif
 endfunction
 
-function! s:detect() abort
+function! s:detect(buf, ...) abort
     " NOTE: curbuf and abuf can be different, e.g. when running fugitive command in different buffer
-    let buf = str2nr(expand('<abuf>'))
-    if !empty(getbufvar(buf, '&buftype')) | return | endif
+    if !empty(getbufvar(a:buf, '&buftype')) | return | endif
     " autocmd is triggered in the context of a visible window or a special autocmd window.
-    let win = win_findbuf(buf)[0]
-    call win_execute(win, 'if conflict_marker#detect#markers() | call s:on_detected() | endif')
+    let wins = win_findbuf(a:buf)
+    if !empty(wins)
+        call win_execute(wins[0], 'if conflict_marker#detect#markers() | call s:on_detected() | endif')
+    elseif !a:0
+        " FileChangedShellPost might be invoked without autocmd window.
+        " In that case, retry detection later.
+        call timer_start(0, { -> s:detect(a:buf, 1) })
+    endif
 endfunction
 
 augroup ConflictMarkerDetect
     autocmd!
-    autocmd BufReadPost * call s:detect()
+    autocmd BufReadPost,FileChangedShellPost,ShellFilterPost,StdinReadPost * call s:detect(str2nr(expand('<abuf>')))
 
-    " autocmd BufReadPost          * unsilent echom 'BufReadPost         ' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
-    " autocmd FileChangedShellPost * unsilent echom 'FileChangedShellPost' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
-    " autocmd FileReadPost         * unsilent echom 'FileReadPost        ' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
-    " autocmd ShellFilterPost      * unsilent echom 'ShellFilterPost     ' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
-    " autocmd StdinReadPost        * unsilent echom 'StdinReadPost       ' bufname('%') bufname(+expand('<abuf>')) win_findbuf(+expand('<abuf>')) | call s:detect()
+    " autocmd BufReadPost          * unsilent echom 'BufReadPost         ' bufname('%') bufname(+expand('<abuf>')) getbufvar(+expand('<abuf>'), 'changedtick') win_findbuf(+expand('<abuf>')) | call s:detect(str2nr(expand('<abuf>')))
+    " autocmd FileChangedShellPost * unsilent echom 'FileChangedShellPost' bufname('%') bufname(+expand('<abuf>')) getbufvar(+expand('<abuf>'), 'changedtick') win_findbuf(+expand('<abuf>')) | call s:detect(str2nr(expand('<abuf>')))
+    " autocmd FileReadPost         * unsilent echom 'FileReadPost        ' bufname('%') bufname(+expand('<abuf>')) getbufvar(+expand('<abuf>'), 'changedtick') win_findbuf(+expand('<abuf>')) | call s:detect(str2nr(expand('<abuf>')))
+    " autocmd ShellFilterPost      * unsilent echom 'ShellFilterPost     ' bufname('%') bufname(+expand('<abuf>')) getbufvar(+expand('<abuf>'), 'changedtick') win_findbuf(+expand('<abuf>')) | call s:detect(str2nr(expand('<abuf>')))
+    " autocmd StdinReadPost        * unsilent echom 'StdinReadPost       ' bufname('%') bufname(+expand('<abuf>')) getbufvar(+expand('<abuf>'), 'changedtick') win_findbuf(+expand('<abuf>')) | call s:detect(str2nr(expand('<abuf>')))
 
     " some autocmd may not have autocmd window .... bug?
     " git checkout to commit where cur and alt are changed, then focus nvim
-    " BufReadPost          cur cur [1000]
-    " FileChangedShellPost cur cur [1000]
+    " BufReadPost          cur cur tick   [1000]
+    " FileChangedShellPost cur cur tick+1 [1000]
     " CTRL-^
-    " BufReadPost          alt alt [1001] " autocmd
-    " FileChangedShellPost cur alt []
+    " BufReadPost          alt alt tick'   [1001] " autocmd window
+    " hit-enter
+    " FileChangedShellPost cur alt tick'+1 []
     "
-    " If FileChangedShellPost run, then BufReadPost should've run first. So just remove it.
+    " ~~If FileChangedShellPost run, then BufReadPost should've run first. So just remove it.~~
+    " BufReadPost may not detect the change..
 
 augroup END
 
